@@ -1,32 +1,25 @@
 // components/Logo.tsx
 import React from 'react';
 import styled from 'styled-components';
+import logoImage from '../assets/logo.png'; // Adjust path if logo is in a different folder
 
 const LogoWrapper = styled.div`
   display: inline-block;
-  padding: 5px 10px;
-  background: #fff;
-  border: 2px solid #ff6200;
-  border-radius: 4px;
+  padding: 0;
+  background: transparent;
+  border: none;
   text-align: center;
 `;
 
-const LogoText = styled.h3`
-  margin: 0;
-  font-size: 16px;
-  font-family: Arial, sans-serif;
-`;
-
-const Highlight = styled.span`
-  color: #ff6200;
+const LogoImg = styled.img`
+  width: 40px; // Adjust size as per design
+  height: auto;
 `;
 
 const Logo: React.FC = () => {
   return (
     <LogoWrapper>
-      <LogoText>
-        <Highlight>HR</Highlight>Mail Finder
-      </LogoText>
+      <LogoImg src={logoImage} alt="HRMail Finder Logo" />
     </LogoWrapper>
   );
 };

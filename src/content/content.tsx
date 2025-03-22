@@ -3,27 +3,41 @@ import React, { useState, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom/client';
 import Button from '../components/Button';
 import SidePanel from '../sidePanel/SidePanel';
+import Onboarding from '../components/Onboarding';
 import { GlobalStyles } from '../styles/global';
-import { injectElement, isLinkedInJobPage, getCompanyNameFromDOM } from '../utils/helpers';
+import { isLinkedInJobPage, getCompanyNameFromDOM } from '../utils/helpers';
 import Logo from '../components/Logo';
 
-const JOB_CONTAINER_SELECTOR = 'div.jobs-description-content'; // Target the job details container
+const JOB_CONTAINER_SELECTOR = 'div.jobs-details__main-content';
+const JOB_TITLE_SELECTOR = '.job-details-jobs-unified-top-card__job-title';
+const APPLY_BUTTON_SELECTOR = '.jobs-save-button';
+const FALLBACK_APPLY_BUTTON_SELECTOR = '[data-test="jobs-save-button"]';
+const ADDITIONAL_FALLBACK_SELECTOR = '.artdeco-button--secondary.artdeco-button--3';
 
-// Main App component to manage button and side panel
+// Main App component
 const App: React.FC = () => {
   const [isPanelOpen, setIsPanelOpen] = useState(false);
-  const buttonRef = useRef<HTMLDivElement>(null); // Ref for the button container
+  const [onboardingCompleted, setOnboardingCompleted] = useState<boolean | null>(null);
+  const buttonRef = useRef<HTMLDivElement>(null);
 
-  // Close panel when clicking outside
+  useEffect(() => {
+    chrome.storage.local.get(['onboardingCompleted'], (result) => {
+      setOnboardingCompleted(!!result.onboardingCompleted);
+    });
+  }, []);
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
         isPanelOpen &&
         buttonRef.current &&
         !buttonRef.current.contains(event.target as Node) &&
-        !document.querySelector('.side-panel')?.contains(event.target as Node) // Assuming SidePanel has class 'side-panel'
+        !document.querySelector('.side-panel')?.contains(event.target as Node)
       ) {
         setIsPanelOpen(false);
+        // Dispatch custom event to close side panel
+        const closeEvent = new CustomEvent('sidePanelToggle', { detail: { isOpen: false } });
+        window.dispatchEvent(closeEvent);
       }
     };
 
@@ -31,143 +45,385 @@ const App: React.FC = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isPanelOpen]);
 
+  const handleOnboardingComplete = () => {
+    chrome.storage.local.set({ onboardingCompleted: true }, () => {
+      setOnboardingCompleted(true);
+    });
+  };
+
+  const handleButtonClick = () => {
+    setIsPanelOpen(true);
+    // Dispatch custom event to open side panel
+    const openEvent = new CustomEvent('sidePanelToggle', { detail: { isOpen: true } });
+    window.dispatchEvent(openEvent);
+  };
+
+  if (onboardingCompleted === null) {
+    return null;
+  }
+
+  if (!onboardingCompleted) {
+    return (
+      <>
+        <GlobalStyles />
+        <div className="onboarding-overlay">
+          <Onboarding onComplete={handleOnboardingComplete} />
+        </div>
+      </>
+    );
+  }
+
   return (
     <>
       <GlobalStyles />
       <div
         id="hrmail-button-wrapper"
-        ref={buttonRef} // Attach ref to button container
-        style={{ width: '300px', display: 'flex', marginLeft: '10px', justifyContent: 'space-between', padding: '10px' }}
+        ref={buttonRef}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px',
+        }}
       >
-        <Button onClick={() => setIsPanelOpen(true)} disabled={isPanelOpen}>
+        <Button onClick={handleButtonClick} disabled={isPanelOpen}>
           Reveal Email & Apply
         </Button>
-        <div style={{ display: 'flex' }}>
-          <Logo />
-        </div>
+        <Logo />
       </div>
-      <SidePanel isOpen={isPanelOpen} onClose={() => setIsPanelOpen(false)}></SidePanel>
     </>
   );
 };
 
+// SidePanel Wrapper to manage its own state
+const SidePanelWrapper: React.FC = () => {
+  const [isOpen, setIsOpen] = useState(false);
+
+  useEffect(() => {
+    const handleSidePanelToggle = (event: Event) => {
+      const customEvent = event as CustomEvent<{ isOpen: boolean }>;
+      setIsOpen(customEvent.detail.isOpen);
+    };
+
+    window.addEventListener('sidePanelToggle', handleSidePanelToggle);
+    return () => window.removeEventListener('sidePanelToggle', handleSidePanelToggle);
+  }, []);
+
+  const handleClose = () => {
+    setIsOpen(false);
+    // Dispatch custom event to sync with App component
+    const closeEvent = new CustomEvent('sidePanelToggle', { detail: { isOpen: false } });
+    window.dispatchEvent(closeEvent);
+  };
+
+  return <SidePanel isOpen={isOpen} onClose={handleClose} />;
+};
+
+// Global variables to manage state
+let isInjected = false;
+let buttonRoot: ReactDOM.Root | null = null;
+let sidePanelRoot: ReactDOM.Root | null = null;
+let shadowHost: HTMLElement | null = null;
+let shadowRoot: ShadowRoot | null = null;
+let buttonContainer: HTMLDivElement | null = null;
+let sidePanelContainer: HTMLDivElement | null = null;
+let observer: MutationObserver | null = null;
+let jobLoadObserver: MutationObserver | null = null;
+let saveButtonObserver: MutationObserver | null = null;
+let resizeObserver: ResizeObserver | null = null;
+let lastJobUrl = window.location.href;
+
+const waitForJobPostLoad = (callback: () => void, retryCount = 0, maxRetries = 20) => {
+  const jobTitle = document.querySelector(JOB_TITLE_SELECTOR);
+  if (jobTitle) {
+    console.log('Job post fully loaded (job title found), proceeding with injection');
+    callback();
+    return;
+  }
+
+  if (retryCount < maxRetries) {
+    console.log(`Job post not fully loaded, retrying (${retryCount + 1}/${maxRetries}) in 500ms`);
+    setTimeout(() => waitForJobPostLoad(callback, retryCount + 1, maxRetries), 500);
+  } else {
+    console.error('Job post not loaded after maximum retries, proceeding with default injection');
+    callback();
+  }
+
+  const jobContainer = document.querySelector(JOB_CONTAINER_SELECTOR) || document.body;
+  jobLoadObserver = new MutationObserver((mutations) => {
+    mutations.forEach(() => {
+      const jobTitle = document.querySelector(JOB_TITLE_SELECTOR);
+      if (jobTitle) {
+        console.log('Job post loaded via observer (job title found), proceeding with injection');
+        jobLoadObserver?.disconnect();
+        callback();
+      }
+    });
+  });
+  jobLoadObserver.observe(jobContainer, { childList: true, subtree: true });
+  console.log('Job load observer set up');
+};
+
 const injectButtonAndPanel = () => {
+  if (isInjected && shadowHost && document.body.contains(shadowHost)) {
+    console.log('Injection already performed and shadow host exists, repositioning button');
+    positionButtonWithRetry();
+    return;
+  }
+
   console.log('=== Starting injectButtonAndPanel ===');
 
-  // Ensure we're on a LinkedIn job page
   if (!isLinkedInJobPage()) {
     console.log('Not a LinkedIn job page, exiting');
     return;
   }
   console.log('Confirmed LinkedIn job page');
 
-  // Target the "Apply" button with a flexible selector
-  const applyButtonContainer = document.getElementsByClassName('jobs-apply-button--top-card')[0] as HTMLElement | null;
-  console.log('applyButtonContainer found:', applyButtonContainer);
+  shadowHost = document.createElement('div');
+  shadowHost.id = 'hrmail-shadow-host';
+  shadowRoot = shadowHost.attachShadow({ mode: 'open' });
 
-  if (!applyButtonContainer) {
-    console.log('Apply button not found or already injected, exiting');
+  try {
+    document.body.appendChild(shadowHost);
+    console.log('Shadow host appended to body');
+  } catch (error) {
+    console.error('Failed to append shadow host to body:', error);
     return;
   }
-  console.log('Apply button is available');
 
-  // Check if the button is visible
-  const isVisible = (element: HTMLElement) => {
-    const rect = element.getBoundingClientRect();
-    const isInViewport =
-      rect.top >= 0 &&
-      rect.left >= 0 &&
-      rect.bottom <= (window.innerHeight || document.documentElement.clientHeight) &&
-      rect.right <= (window.innerWidth || document.documentElement.clientWidth);
-    return isInViewport && window.getComputedStyle(element).visibility !== 'hidden';
-  };
+  buttonContainer = document.createElement('div');
+  buttonContainer.id = 'hrmail-button';
+  buttonContainer.style.position = 'absolute';
+  buttonContainer.style.zIndex = '1000';
+  buttonContainer.style.display = 'inline-flex';
 
-  if (!isVisible(applyButtonContainer)) {
-    console.log('Apply button not visible, retrying in 500ms');
-    setTimeout(injectButtonAndPanel, 500);
+  shadowRoot.appendChild(buttonContainer);
+
+  if (!shadowRoot.contains(buttonContainer)) {
+    console.error('buttonContainer not in shadow DOM after append');
     return;
   }
-  console.log('Apply button is visible');
+  console.log('buttonContainer verified in shadow DOM');
 
-  // Create a single root container for the entire extension UI
-  let rootContainer = document.getElementById('hrmail-root') as HTMLElement | null;
-  if (!rootContainer) {
-    rootContainer = document.createElement('div');
-    rootContainer.id = 'hrmail-root';
+  const companyName = getCompanyNameFromDOM();
+  console.log('Company Name:', companyName);
+
+  try {
+    if (!buttonRoot) {
+      buttonRoot = ReactDOM.createRoot(buttonContainer);
+    }
+    buttonRoot.render(<App />);
+    console.log('App component rendered successfully into buttonContainer');
+    isInjected = true;
+  } catch (error) {
+    console.error('Failed to render App component into buttonContainer:', error);
+    return;
+  }
+
+  sidePanelContainer = document.getElementById('hrmail-sidepanel-root') as HTMLDivElement | null;
+  if (!sidePanelContainer) {
+    sidePanelContainer = document.createElement('div');
+    sidePanelContainer.id = 'hrmail-sidepanel-root';
     try {
-      document.body.appendChild(rootContainer);
-      console.log('Root container appended to body');
+      document.body.appendChild(sidePanelContainer);
+      console.log('Side panel container appended to body');
     } catch (error) {
-      console.error('Failed to append root container:', error);
+      console.error('Failed to append side panel container:', error);
       return;
     }
   }
 
-  // Verify rootContainer is in DOM
-  if (!document.body.contains(rootContainer)) {
-    console.error('rootContainer not in DOM after append');
+  if (!document.body.contains(sidePanelContainer)) {
+    console.error('sidePanelContainer not in DOM after append');
     return;
   }
-  console.log('rootContainer verified in DOM');
+  console.log('sidePanelContainer verified in DOM');
 
-  // Create button container
-  const buttonContainer = document.createElement('div');
-  buttonContainer.id = 'hrmail-button';
-  buttonContainer.style.display = 'inline-flex';
-  buttonContainer.style.marginLeft = '10px';
-
-  // Inject the button container next to the apply button
   try {
-    injectElement(buttonContainer, applyButtonContainer, 'after');
-    console.log('Button container injected');
+    if (!sidePanelRoot) {
+      sidePanelRoot = ReactDOM.createRoot(sidePanelContainer);
+    }
+    sidePanelRoot.render(<SidePanelWrapper />);
+    console.log('SidePanelWrapper component rendered successfully into sidePanelContainer');
   } catch (error) {
-    console.error('Injection failed:', error);
-    document.body.appendChild(buttonContainer);
-    console.warn('Fallback: Appended buttonContainer to body');
+    console.error('Failed to render SidePanelWrapper component:', error);
   }
 
-  // Get company name
-  const companyName = getCompanyNameFromDOM();
-  console.log('Company Name:', companyName);
+  positionButtonWithRetry();
+};
 
-  // Render everything in the root container
-  try {
-    const root = ReactDOM.createRoot(rootContainer);
-    root.render(<App />);
-    console.log('App component rendered successfully');
-  } catch (error) {
-    console.error('Failed to render App component:', error);
+const positionButtonWithRetry = (retryCount = 0, maxRetries = 10) => {
+  if (!buttonContainer) {
+    console.log('Button container not found, skipping positioning');
+    return;
+  }
+
+  let saveButton = document.querySelector(APPLY_BUTTON_SELECTOR) as HTMLElement | null;
+  if (!saveButton) {
+    saveButton = document.querySelector(FALLBACK_APPLY_BUTTON_SELECTOR) as HTMLElement | null;
+  }
+  if (!saveButton) {
+    saveButton = document.querySelector(ADDITIONAL_FALLBACK_SELECTOR) as HTMLElement | null;
+  }
+
+  if (!saveButton) {
+    if (retryCount < maxRetries) {
+      console.log(`Save button not found, retrying (${retryCount + 1}/${maxRetries}) in 500ms`);
+      setTimeout(() => positionButtonWithRetry(retryCount + 1, maxRetries), 500);
+      return;
+    } else {
+      console.error('Save button not found after maximum retries, positioning button at default location');
+      buttonContainer.style.display = 'inline-flex';
+      buttonContainer.style.top = '10px';
+      buttonContainer.style.right = '10px';
+      buttonContainer.style.left = 'auto';
+      console.log('Button positioned at default location (top-right)');
+      setupSaveButtonObserver();
+      return;
+    }
+  }
+
+  const rect = saveButton.getBoundingClientRect();
+  const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+  const scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
+
+  buttonContainer.style.display = 'inline-flex';
+  buttonContainer.style.top = `${rect.top + scrollTop}px`;
+  buttonContainer.style.left = `${rect.right + scrollLeft + 10}px`;
+  buttonContainer.style.right = 'auto';
+  console.log('Button positioned at:', {
+    top: buttonContainer.style.top,
+    left: buttonContainer.style.left,
+  });
+};
+
+const setupSaveButtonObserver = () => {
+  if (saveButtonObserver) {
+    saveButtonObserver.disconnect();
+  }
+
+  const jobContainer = document.querySelector(JOB_CONTAINER_SELECTOR) || document.body;
+  saveButtonObserver = new MutationObserver((mutations) => {
+    mutations.forEach(() => {
+      let saveButton = document.querySelector(APPLY_BUTTON_SELECTOR) as HTMLElement | null;
+      if (!saveButton) {
+        saveButton = document.querySelector(FALLBACK_APPLY_BUTTON_SELECTOR) as HTMLElement | null;
+      }
+      if (!saveButton) {
+        saveButton = document.querySelector(ADDITIONAL_FALLBACK_SELECTOR) as HTMLElement | null;
+      }
+
+      if (saveButton) {
+        console.log('Save button detected via observer, repositioning button');
+        positionButtonWithRetry();
+        saveButtonObserver?.disconnect();
+      }
+    });
+  });
+  saveButtonObserver.observe(jobContainer, { childList: true, subtree: true });
+  console.log('Save button observer set up');
+};
+
+const setupPositionListeners = () => {
+  const handleScroll = () => {
+    positionButtonWithRetry();
+  };
+  window.addEventListener('scroll', handleScroll);
+
+  resizeObserver = new ResizeObserver(() => {
+    positionButtonWithRetry();
+  });
+  resizeObserver.observe(document.body);
+
+  return () => {
+    window.removeEventListener('scroll', handleScroll);
+    if (resizeObserver) {
+      resizeObserver.disconnect();
+    }
+  };
+};
+
+const setupNavigationListeners = () => {
+  const handlePopstate = () => {
+    const currentJobUrl = window.location.href;
+    if (currentJobUrl !== lastJobUrl) {
+      console.log('SPA navigation detected, waiting for job post to load');
+      lastJobUrl = currentJobUrl;
+      isInjected = false;
+      waitForJobPostLoad(injectButtonAndPanel);
+    }
+  };
+  window.addEventListener('popstate', handlePopstate);
+
+  const jobContainer = document.querySelector(JOB_CONTAINER_SELECTOR) || document.body;
+  observer = new MutationObserver(() => {
+    const currentJobUrl = window.location.href;
+    if (currentJobUrl !== lastJobUrl) {
+      console.log('Job page changed, waiting for job post to load');
+      lastJobUrl = currentJobUrl;
+      isInjected = false;
+      waitForJobPostLoad(injectButtonAndPanel);
+    }
+  });
+  observer.observe(jobContainer, { childList: true, subtree: true });
+  console.log('MutationObserver set up on job container');
+
+  return () => {
+    window.removeEventListener('popstate', handlePopstate);
+    if (observer) {
+      observer.disconnect();
+    }
+    if (jobLoadObserver) {
+      jobLoadObserver.disconnect();
+    }
+    if (saveButtonObserver) {
+      saveButtonObserver.disconnect();
+    }
+  };
+};
+
+const runInjection = () => {
+  if (document.readyState === 'complete' || document.readyState === 'interactive') {
+    console.log('DOM loaded, waiting for job post to fully load');
+    waitForJobPostLoad(() => {
+      injectButtonAndPanel();
+      const cleanupPosition = setupPositionListeners();
+      const cleanupNavigation = setupNavigationListeners();
+
+      window.addEventListener('unload', () => {
+        cleanupPosition();
+        cleanupNavigation();
+        if (buttonRoot) {
+          buttonRoot.unmount();
+        }
+        if (sidePanelRoot) {
+          sidePanelRoot.unmount();
+        }
+      });
+    });
+  } else {
+    console.log('DOM not ready, waiting for DOMContentLoaded');
+    document.addEventListener('DOMContentLoaded', () => {
+      console.log('DOM loaded, waiting for job post to fully load');
+      waitForJobPostLoad(() => {
+        injectButtonAndPanel();
+        const cleanupPosition = setupPositionListeners();
+        const cleanupNavigation = setupNavigationListeners();
+
+        window.addEventListener('unload', () => {
+          cleanupPosition();
+          cleanupNavigation();
+          if (buttonRoot) {
+            buttonRoot.unmount();
+          }
+          if (sidePanelRoot) {
+            sidePanelRoot.unmount();
+          }
+        });
+      });
+    });
   }
 };
 
-// Run injection on page load and DOM changes
-document.addEventListener('DOMContentLoaded', () => {
-  console.log('DOM fully loaded, starting injection');
-  injectButtonAndPanel();
-});
+runInjection();
 
-let lastJobUrl = window.location.href; 
-
-// Use a MutationObserver to detect changes in the job container
-const jobContainer = document.querySelector(JOB_CONTAINER_SELECTOR);
-if (jobContainer) {
-  new MutationObserver(() => {
-    const currentJobUrl = window.location.href;
-    if (currentJobUrl !== lastJobUrl) {
-      console.log('Job page changed, re-running injection');
-      lastJobUrl = currentJobUrl;
-      injectButtonAndPanel();
-    }
-  }).observe(jobContainer, { childList: true, subtree: true });
-} else {
-  console.warn(`Job container (${JOB_CONTAINER_SELECTOR}) not found, using URL polling as fallback`);
-  setInterval(() => {
-    const currentJobUrl = window.location.href;
-    if (currentJobUrl !== lastJobUrl) {
-      console.log('Job URL changed, re-running injection');
-      lastJobUrl = currentJobUrl;
-      injectButtonAndPanel();
-    }
-  }, 1000); // Poll every 1 second
-}
 export { App };

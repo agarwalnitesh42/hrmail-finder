@@ -1,3 +1,4 @@
+// src/sidePanel/SidePanel.tsx
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import PopupContent from '../popupContent/PopupContent';
@@ -7,21 +8,39 @@ import { debounce, getComposeUrl } from '../utils/helpers';
 const PanelWrapper = styled.div<{ isOpen: boolean }>`
   position: fixed;
   top: 0;
-  right: ${props => (props.isOpen ? '0' : '-350px')};
-  width: 55%;
+  right: 0;
+  width: ${({ isOpen }) => (isOpen ? '350px' : '0')}; // Fully closed when not open
   height: 100%;
-  background: white;
-  box-shadow: -2px 0 10px rgba(0, 0, 0, 0.1);
+  background-color: #f5f5f5; // Light background for contrast with dark theme
+  box-shadow: -2px 0 10px rgba(0, 0, 0, 0.2); // Slightly darker shadow
   z-index: 1000;
-  transition: right 0.3s ease-in-out;
-  overflow-y: auto;
-  padding: 10px;
+  transition: width 0.3s ease-in-out; // Smooth transition for open/close
+  overflow: hidden; // Hide content when closed
+  padding: ${({ isOpen }) => (isOpen ? '10px' : '0')}; // Padding only when open
+`;
+
+const CloseButton = styled.button`
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: none;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  color: #ff6200; // Theme color for close button
   display: flex;
+  align-items: center;
+  justify-content: center;
 `;
 
 const SidePanel: React.FC<SidePanelProps> = ({ isOpen, onClose }) => {
   // Mock data for now (replace with API call later)
-  const [emails, setEmails] = useState<string[]>(['khushi.agarwal@okta.com', 'poonam.sharma@okta.com', 'raj.gupta@okta.com', 'kamal.gupta@okta.com']);
+  const [emails, setEmails] = useState<string[]>([
+    'khushi.agarwal@okta.com',
+    'poonam.sharma@okta.com',
+    'raj.gupta@okta.com',
+    'kamal.gupta@okta.com',
+  ]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [coverLetter] = useState<string>(
@@ -59,28 +78,21 @@ Nitesh Agarwal,
     }
   }, [isOpen]);
 
-  // const handleSubmit = (emails: string[], coverLetter: string, resumeUrl: string) => {
-  //   const emailList = emails.join(',');
-  //   const subject = encodeURIComponent('Application for Senior Software Engineer');
-  //   const body = encodeURIComponent(`${coverLetter}\nResume: ${resumeUrl}`);
-  //   window.location.href = `mailto:${emailList}?subject=${subject}&body=${body}`;
-  //   onClose();
-  // };
-
   const handleSubmit = (recipientEmails: string[], coverLetter: string, resumeUrl: string) => {
     const subject = 'Application for Senior Software Engineer';
     const body = `${coverLetter}\n\nPlease attach my resume from: ${resumeUrl}\n(Note: Please manually attach your resume in the email compose window.)`;
-    
+
     // Get the compose URL based on the user's email provider
     const composeUrl = getComposeUrl(userEmail, recipientEmails, subject, body);
-    
+
     // Open the compose URL in a new Chrome tab
     window.open(composeUrl, '_blank');
     onClose();
   };
 
   return (
-    <PanelWrapper isOpen={isOpen}>
+    <PanelWrapper className="side-panel" isOpen={isOpen}>
+      <CloseButton onClick={onClose}>✕</CloseButton>
       <PopupContent
         emails={emails}
         loading={loading}

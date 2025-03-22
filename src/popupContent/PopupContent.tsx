@@ -149,9 +149,10 @@ const PopupContent: React.FC<PopupContentProps> = ({
             placeholder="Enter your cover letter..."
           />
           <ResumeLink>
-            <Link href={resumeUrl} target="_blank">
+            <text> Please Add Resume in the next step while sending email</text>
+            {/* <Link href={resumeUrl} target="_blank">
               Nitesh Agarwal's Resume
-            </Link>
+            </Link> */}
           </ResumeLink>
           <ButtonContainer>
             <Button half={true} onClick={onClose}>Cancel</Button>

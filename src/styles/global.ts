@@ -1,17 +1,30 @@
+// src/styles/global.ts
 import { createGlobalStyle } from 'styled-components';
 
 export const GlobalStyles = createGlobalStyle`
-  /* Reset default styles */
-  * {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
+  /* Only apply styles to extension-specific elements */
+  #hrmail-root,
+  #hrmail-button-wrapper,
+  .onboarding-overlay,
+  .side-panel {
+    font-family: 'Poppins', sans-serif !important;
+    color: #333 !important;
+    box-sizing: border-box; // Only for extension elements
   }
 
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
+  /* Ensure buttons and inputs within extension have consistent styles */
+  #hrmail-root button,
+  #hrmail-root input,
+  #hrmail-root select,
+  .onboarding-overlay button,
+  .onboarding-overlay input,
+  .onboarding-overlay select,
+  .side-panel button,
+  .side-panel input,
+  .side-panel select {
+    font-family: 'Poppins', sans-serif !important;
+    color: #333 !important;
+    background-color: #fff !important;
   }
 
   /* Ensure side panel overlay doesn't interfere with LinkedIn */
@@ -20,21 +33,29 @@ export const GlobalStyles = createGlobalStyle`
     z-index: 1000;
   }
 
-  /* Smooth scrolling for email list */
-  ::-webkit-scrollbar {
+  /* Smooth scrolling for email list within extension */
+  #hrmail-root ::-webkit-scrollbar,
+  .onboarding-overlay ::-webkit-scrollbar,
+  .side-panel ::-webkit-scrollbar {
     width: 8px;
   }
 
-  ::-webkit-scrollbar-track {
+  #hrmail-root ::-webkit-scrollbar-track,
+  .onboarding-overlay ::-webkit-scrollbar-track,
+  .side-panel ::-webkit-scrollbar-track {
     background: #f1f1f1;
   }
 
-  ::-webkit-scrollbar-thumb {
+  #hrmail-root ::-webkit-scrollbar-thumb,
+  .onboarding-overlay ::-webkit-scrollbar-thumb,
+  .side-panel ::-webkit-scrollbar-thumb {
     background: #888;
     border-radius: 4px;
   }
 
-  ::-webkit-scrollbar-thumb:hover {
+  #hrmail-root ::-webkit-scrollbar-thumb:hover,
+  .onboarding-overlay ::-webkit-scrollbar-thumb:hover,
+  .side-panel ::-webkit-scrollbar-thumb:hover {
     background: #555;
   }
 `;

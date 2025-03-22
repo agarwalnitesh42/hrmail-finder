@@ -37,7 +37,7 @@ export const injectElement = (element: HTMLElement, target: Element, position: '
 };
 
 export const isLinkedInJobPage = (): boolean => {
-  return window.location.href.includes('linkedin.com/jobs/');
+  return window.location.href.includes('linkedin.com/jobs/') || window.location.href.includes('http://localhost:3000/');
 };
 
 // utils/helpers.ts

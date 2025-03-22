@@ -3,7 +3,19 @@
   "name": "HRMail Finder",
   "version": "1.0.1",
   "description": "Reveal HR emails on LinkedIn jobs",
-  "permissions": ["activeTab", "storage"],
+  "action": {
+    "default_popup": "index.html",
+    "default_icon": {
+      "16": "hrMailFinder.png",
+      "48": "hrMailFinder.png",
+      "128": "hrMailFinder.png"
+    }
+  },
+  "permissions": ["activeTab", "storage", "scripting"],
+  "host_permissions": [
+    "https://www.linkedin.com/*",
+    "http://localhost:3000/*"
+  ],
   "content_scripts": [
     {
       "matches": ["*://*.linkedin.com/jobs/*"],
@@ -15,5 +27,10 @@
       "resources": ["static/js/*"],
       "matches": ["*://*.linkedin.com/*"]
     }
-  ]
+  ],
+  "icons": {
+    "16": "hrMailFinder.png",
+    "48": "hrMailFinder.png",
+    "128": "hrMailFinder.png"
+  }
 }
