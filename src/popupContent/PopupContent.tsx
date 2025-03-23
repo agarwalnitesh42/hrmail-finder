@@ -1,4 +1,4 @@
-// PopupContent.tsx (final updated version)
+// src/popupContent/PopupContent.tsx
 import React, { useState, useEffect, useCallback } from 'react';
 import styled from 'styled-components';
 import EmailList from '../components/EmailList';
@@ -6,26 +6,23 @@ import Button from '../components/Button';
 import ResumeLink from '../components/ResumeLink';
 import EmailProgressBar from '../components/EmailProgressBar';
 import CompanyDetails from '../components/CompanyDetails';
-import Logo from '../components/Logo'; // Import new Logo component
+import Logo from '../components/Logo';
 import { PopupContentProps } from '../types';
 
-// Styled components (unchanged)
+// Styled components
 const PopupWrapper = styled.div`
   width: 100%;
-  // padding: 15px;
   background: white;
   border-radius: 8px;
-  // box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
   font-family: Arial, sans-serif;
-  height: 56%;
+  height: 63%;
 `;
 
 const CoverLetterInput = styled.textarea`
   width: 100%;
   height: 100%;
   min-height: 150px;
-  // max-height: 420px;
-  margin: 10px 0;
+  margin: 4px 0;
   padding: 12px;
   border: 1px solid #ccc;
   border-radius: 4px;
@@ -54,7 +51,6 @@ const Link = styled.a`
 const ButtonContainer = styled.div`
   display: flex;
   justify-content: space-between;
-  margin-top: 10px;
 `;
 
 const LoadingSpinner = styled.div`
@@ -75,13 +71,26 @@ const Header = styled.div`
   justify-content: space-between;
   height: 31px;
   font-size: 14px;
-  margin-bottom: 10px;
+  border-bottom: 1px solid #d5d5d5;
 `;
 
 const TextUnderline = styled.text`
-  color: black;
+  color: #2a2826;
   font-size: 14px;
-   font-weight: 600;
+  font-weight: 600;
+`;
+
+const RetryButton = styled.button`
+  background: #ff6200;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-top: 10px;
+  &:hover {
+    opacity: 0.9;
+  }
 `;
 
 const PopupContent: React.FC<PopupContentProps> = ({
@@ -94,6 +103,7 @@ const PopupContent: React.FC<PopupContentProps> = ({
   onClose,
   companyName = 'Beem',
   companyLogo,
+  onRetry, // Add onRetry prop
 }) => {
   const [emails, setEmails] = useState<string[]>(initialEmails);
   const [coverLetter, setCoverLetter] = useState(initialCoverLetter);
@@ -114,6 +124,11 @@ const PopupContent: React.FC<PopupContentProps> = ({
     });
   }, [coverLetter]);
 
+  // Sync emails with initialEmails (e.g., when fetched from API or cache)
+  useEffect(() => {
+    setEmails(initialEmails);
+  }, [initialEmails]);
+
   const handleRemoveEmail = useCallback((email: string) => {
     setEmails((prev) => prev.filter((e) => e !== email));
   }, []);
@@ -126,37 +141,42 @@ const PopupContent: React.FC<PopupContentProps> = ({
     onSubmit(emails, coverLetter, resumeUrl);
   }, [emails, coverLetter, resumeUrl, onSubmit]);
 
-  if (error) {
-    return <ErrorMessage>Error: {error}</ErrorMessage>;
-  }
-
   return (
     <PopupWrapper>
       <Header>
-        <Logo /> {/* Replace Header with Logo */}
+        <Logo />
         {companyName && <CompanyDetails companyName={companyName} companyLogo={companyLogo} />}
       </Header>
       {loading ? (
         <EmailProgressBar />
+      ) : error ? (
+        <div>
+          <ErrorMessage>Error: {error}</ErrorMessage>
+          {onRetry && <RetryButton onClick={onRetry}>Retry</RetryButton>}
+        </div>
       ) : (
         <>
-          <TextUnderline> Emails </TextUnderline>
+          <TextUnderline>Emails</TextUnderline>
           <EmailList emails={emails} onRemove={handleRemoveEmail} />
-          <TextUnderline> Cover Letter </TextUnderline>
+          <TextUnderline>Cover Letter</TextUnderline>
           <CoverLetterInput
             value={coverLetter}
             onChange={(e) => setCoverLetter(e.target.value)}
             placeholder="Enter your cover letter..."
           />
           <ResumeLink>
-            <text> Please Add Resume in the next step while sending email</text>
-            {/* <Link href={resumeUrl} target="_blank">
-              Nitesh Agarwal's Resume
-            </Link> */}
+            <text>Please Add Resume in the next step while sending email</text>
           </ResumeLink>
           <ButtonContainer>
-            <Button half={true} onClick={onClose}>Cancel</Button>
-            <Button half={true} onClick={handleSubmit} disabled={emails.length === 0}>
+            <Button half={true} onClick={onClose}>
+              Cancel
+            </Button>
+            <Button
+              backgroundColor={'orange'}
+              half={true}
+              onClick={handleSubmit}
+              disabled={emails.length === 0}
+            >
               Apply
             </Button>
           </ButtonContainer>

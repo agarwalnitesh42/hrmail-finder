@@ -19,7 +19,6 @@ export const GlobalStyles = createGlobalStyle`
   .onboarding-overlay button,
   .onboarding-overlay input,
   .onboarding-overlay select,
-  .side-panel button,
   .side-panel input,
   .side-panel select {
     font-family: 'Poppins', sans-serif !important;

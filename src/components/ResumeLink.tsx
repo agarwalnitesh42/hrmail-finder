@@ -7,7 +7,7 @@ interface ResumeLinkProps {
 
 const StyledResume = styled.div<{ disabled?: boolean }>`
   background-color: #f5f5f5;
-  color: white;
+  color: black;
   border: none;
   padding: 8px 16px;
   border-radius: 4px;

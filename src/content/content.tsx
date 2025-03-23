@@ -5,7 +5,7 @@ import Button from '../components/Button';
 import SidePanel from '../sidePanel/SidePanel';
 import Onboarding from '../components/Onboarding';
 import { GlobalStyles } from '../styles/global';
-import { isLinkedInJobPage, getCompanyNameFromDOM } from '../utils/helpers';
+import { isLinkedInJobPage, getCompanyNameFromDOM, debounce } from '../utils/helpers';
 import Logo from '../components/Logo';
 
 const JOB_CONTAINER_SELECTOR = 'div.jobs-details__main-content';
@@ -35,7 +35,6 @@ const App: React.FC = () => {
         !document.querySelector('.side-panel')?.contains(event.target as Node)
       ) {
         setIsPanelOpen(false);
-        // Dispatch custom event to close side panel
         const closeEvent = new CustomEvent('sidePanelToggle', { detail: { isOpen: false } });
         window.dispatchEvent(closeEvent);
       }
@@ -53,7 +52,6 @@ const App: React.FC = () => {
 
   const handleButtonClick = () => {
     setIsPanelOpen(true);
-    // Dispatch custom event to open side panel
     const openEvent = new CustomEvent('sidePanelToggle', { detail: { isOpen: true } });
     window.dispatchEvent(openEvent);
   };
@@ -71,6 +69,11 @@ const App: React.FC = () => {
         </div>
       </>
     );
+  }
+
+  // Only render button if on a LinkedIn job page
+  if (!isLinkedInJobPage()) {
+    return null;
   }
 
   return (
@@ -110,7 +113,6 @@ const SidePanelWrapper: React.FC = () => {
 
   const handleClose = () => {
     setIsOpen(false);
-    // Dispatch custom event to sync with App component
     const closeEvent = new CustomEvent('sidePanelToggle', { detail: { isOpen: false } });
     window.dispatchEvent(closeEvent);
   };
@@ -164,19 +166,23 @@ const waitForJobPostLoad = (callback: () => void, retryCount = 0, maxRetries = 2
 };
 
 const injectButtonAndPanel = () => {
+  // Only inject if on a LinkedIn job page
+  if (!isLinkedInJobPage()) {
+    console.log('Not a LinkedIn job page, exiting');
+    if (buttonContainer) {
+      buttonContainer.style.display = 'none'; // Hide button if already injected
+    }
+    return;
+  }
+
   if (isInjected && shadowHost && document.body.contains(shadowHost)) {
     console.log('Injection already performed and shadow host exists, repositioning button');
+    buttonContainer!.style.display = 'inline-flex'; // Show button on job page
     positionButtonWithRetry();
     return;
   }
 
   console.log('=== Starting injectButtonAndPanel ===');
-
-  if (!isLinkedInJobPage()) {
-    console.log('Not a LinkedIn job page, exiting');
-    return;
-  }
-  console.log('Confirmed LinkedIn job page');
 
   shadowHost = document.createElement('div');
   shadowHost.id = 'hrmail-shadow-host';
@@ -210,10 +216,10 @@ const injectButtonAndPanel = () => {
   try {
     if (!buttonRoot) {
       buttonRoot = ReactDOM.createRoot(buttonContainer);
+      buttonRoot.render(<App />);
+      console.log('App component rendered successfully into buttonContainer');
+      isInjected = true;
     }
-    buttonRoot.render(<App />);
-    console.log('App component rendered successfully into buttonContainer');
-    isInjected = true;
   } catch (error) {
     console.error('Failed to render App component into buttonContainer:', error);
     return;
@@ -241,9 +247,9 @@ const injectButtonAndPanel = () => {
   try {
     if (!sidePanelRoot) {
       sidePanelRoot = ReactDOM.createRoot(sidePanelContainer);
+      sidePanelRoot.render(<SidePanelWrapper />);
+      console.log('SidePanelWrapper component rendered successfully into sidePanelContainer');
     }
-    sidePanelRoot.render(<SidePanelWrapper />);
-    console.log('SidePanelWrapper component rendered successfully into sidePanelContainer');
   } catch (error) {
     console.error('Failed to render SidePanelWrapper component:', error);
   }
@@ -303,35 +309,38 @@ const setupSaveButtonObserver = () => {
 
   const jobContainer = document.querySelector(JOB_CONTAINER_SELECTOR) || document.body;
   saveButtonObserver = new MutationObserver((mutations) => {
-    mutations.forEach(() => {
-      let saveButton = document.querySelector(APPLY_BUTTON_SELECTOR) as HTMLElement | null;
-      if (!saveButton) {
-        saveButton = document.querySelector(FALLBACK_APPLY_BUTTON_SELECTOR) as HTMLElement | null;
-      }
-      if (!saveButton) {
-        saveButton = document.querySelector(ADDITIONAL_FALLBACK_SELECTOR) as HTMLElement | null;
-      }
-
-      if (saveButton) {
-        console.log('Save button detected via observer, repositioning button');
-        positionButtonWithRetry();
-        saveButtonObserver?.disconnect();
+    let shouldReposition = false;
+    mutations.forEach((mutation) => {
+      if (mutation.addedNodes.length || mutation.removedNodes.length) {
+        const saveButton = document.querySelector(APPLY_BUTTON_SELECTOR) ||
+                          document.querySelector(FALLBACK_APPLY_BUTTON_SELECTOR) ||
+                          document.querySelector(ADDITIONAL_FALLBACK_SELECTOR);
+        if (saveButton) {
+          shouldReposition = true;
+        }
       }
     });
+
+    if (shouldReposition) {
+      console.log('Save button detected via observer, repositioning button');
+      positionButtonWithRetry();
+    }
   });
   saveButtonObserver.observe(jobContainer, { childList: true, subtree: true });
   console.log('Save button observer set up');
 };
 
 const setupPositionListeners = () => {
-  const handleScroll = () => {
+  const handleScroll = debounce(() => {
     positionButtonWithRetry();
-  };
-  window.addEventListener('scroll', handleScroll);
+  }, 100);
 
-  resizeObserver = new ResizeObserver(() => {
+  const handleResize = debounce(() => {
     positionButtonWithRetry();
-  });
+  }, 100);
+
+  window.addEventListener('scroll', handleScroll);
+  resizeObserver = new ResizeObserver(handleResize);
   resizeObserver.observe(document.body);
 
   return () => {

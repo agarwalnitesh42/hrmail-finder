@@ -27,6 +27,7 @@ export interface PopupContentProps {
   onClose: () => void;
   companyName?: string; // Added
   companyLogo?: string; // Added
+  onRetry?: () => void;
 }
 
 export interface SidePanelProps {

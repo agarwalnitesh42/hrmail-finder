@@ -1,7 +1,7 @@
 // components/Logo.tsx
 import React from 'react';
 import styled from 'styled-components';
-import logoImage from '../assets/logo.png'; // Adjust path if logo is in a different folder
+import logoImage from '../assets/hmf-logo.png'; // Adjust path if logo is in a different folder
 
 const LogoWrapper = styled.div`
   display: inline-block;
@@ -12,7 +12,7 @@ const LogoWrapper = styled.div`
 `;
 
 const LogoImg = styled.img`
-  width: 40px; // Adjust size as per design
+  width: 100px; // Adjust size as per design
   height: auto;
 `;
 

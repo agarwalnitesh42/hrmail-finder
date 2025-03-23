@@ -51,9 +51,9 @@ const EmailItemContainer = styled.div`
 `;
 
 const Status = styled.span`
-  padding: 10px;
+  padding: 5px;
   background: #7ef17e;
-  font-size: 14px;
+  font-size: 10px;
   border-radius: 6px;
 `;
 

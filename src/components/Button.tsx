@@ -7,11 +7,12 @@ interface ButtonProps {
   onClick: () => void;
   disabled?: boolean;
   children: React.ReactNode;
+  backgroundColor?: string;
 }
-
-const StyledButton = styled.button<{ disabled?: boolean; half?: boolean }>`
-  background: #ff6200; // Orange background as per screenshot
-  color: white; // White text
+// color:#333333 white; // White text
+const StyledButton = styled.button<{ disabled?: boolean; half?: boolean; backgroundColor?: string; }>`
+  background: ${(props) => (props.backgroundColor === 'white') ? 'white': '#ff6200'}; // Orange background as per screenshot
+  color: ${(props) => (props.backgroundColor === 'white') ? '#333333': '#ffffff'}; 
   border: none; // No border
   border-radius: 4px; // Rounded corners
   padding: 10px 20px; // Increased padding for better look
@@ -27,7 +28,7 @@ const StyledButton = styled.button<{ disabled?: boolean; half?: boolean }>`
   justify-content: center;
 
   &:hover {
-    background: ${(props) => (props.disabled ? '#ff6200' : '#e55a00')}; // Darker orange on hover, no change if disabled
+    background: ${({ backgroundColor }) => (backgroundColor ? darkenColor(backgroundColor, 10) : '#e55a00')};
     opacity: ${(props) => (props.disabled ? 0.6 : 0.9)}; // Slight opacity change on hover
   }
 
@@ -37,9 +38,26 @@ const StyledButton = styled.button<{ disabled?: boolean; half?: boolean }>`
   }
 `;
 
-const Button: React.FC<ButtonProps> = ({ onClick, disabled = false, children, half }) => {
+// Utility function to darken a color (for hover effect)
+const darkenColor = (color: string, percent: number): string => {
+  const num = parseInt(color.replace('#', ''), 16);
+  const amt = Math.round(2.55 * percent);
+  const R = (num >> 16) - amt;
+  const G = ((num >> 8) & 0x00ff) - amt;
+  const B = (num & 0x0000ff) - amt;
+  return `#${(
+    0x1000000 +
+    (R < 255 ? (R < 1 ? 0 : R) : 255) * 0x10000 +
+    (G < 255 ? (G < 1 ? 0 : G) : 255) * 0x100 +
+    (B < 255 ? (B < 1 ? 0 : B) : 255)
+  )
+    .toString(16)
+    .slice(1)}`;
+};
+
+const Button: React.FC<ButtonProps> = ({ onClick, disabled = false, children, half, backgroundColor }) => {
   return (
-    <StyledButton half={half} onClick={onClick} disabled={disabled}>
+    <StyledButton half={half} onClick={onClick} disabled={disabled} backgroundColor={'white'}>
       {children}
     </StyledButton>
   );
