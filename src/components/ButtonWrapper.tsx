@@ -14,11 +14,12 @@ const ButtonContainer = styled.div`
 `;
 
 const StyledButton = styled.button<{ disabled?: boolean }>`
-  background: #181818 !important; /* Updated button color */
+  margin-left: 10px;
+  background: #F44336 !important; /* Updated button color */
   color: #ffffff !important; /* Updated text inside button */
   border: none !important;
-  padding: 10px 20px !important;
-  border-radius: 8px !important;
+  padding: 10px 10px !important;
+  border-radius: 22px !important;
   cursor: pointer !important;
   font-size: 16px !important;
   font-weight: 600 !important;
@@ -53,7 +54,7 @@ const ButtonWrapper = ({ onClick, disabled }: any) => {
   return (
     <ButtonContainer>
       <StyledButton onClick={handleClick}>
-        Reveal Email & Apply <Logo />
+        Reveal Email & Apply <Logo width={`70px`}/>
       </StyledButton>
     </ButtonContainer>
   );
