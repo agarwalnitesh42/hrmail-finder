@@ -1,4 +1,3 @@
-// src/popupContent/PopupContent.tsx
 import React, { useState, useEffect, useCallback } from 'react';
 import styled from 'styled-components';
 import EmailList from '../components/EmailList';
@@ -8,11 +7,12 @@ import EmailProgressBar from '../components/EmailProgressBar';
 import CompanyDetails from '../components/CompanyDetails';
 import Logo from '../components/Logo';
 import { PopupContentProps } from '../types';
+import ErrorComponent from '../components/ErrorComponent';
 
-// Styled components
+// Styled components with updated color palette
 const PopupWrapper = styled.div`
   width: 100%;
-  background: white;
+  background: #ffffff; /* Updated background color */
   border-radius: 8px;
   font-family: Arial, sans-serif;
   height: 63%;
@@ -33,7 +33,7 @@ const CoverLetterInput = styled.textarea`
   white-space: pre-wrap;
   overflow-y: auto;
   background-color: #fff;
-  color: #333;
+  color: #4d5969; /* Updated text color */
 `;
 
 const Link = styled.a`
@@ -56,7 +56,7 @@ const ButtonContainer = styled.div`
 const LoadingSpinner = styled.div`
   text-align: center;
   padding: 20px;
-  color: #666;
+  color: #4d5969; /* Updated text color */
 `;
 
 const ErrorMessage = styled.div`
@@ -75,14 +75,14 @@ const Header = styled.div`
 `;
 
 const TextUnderline = styled.text`
-  color: #2a2826;
+  color: #4d5969; /* Updated text color */
   font-size: 14px;
   font-weight: 600;
 `;
 
 const RetryButton = styled.button`
-  background: #ff6200;
-  color: white;
+  background: #181818; /* Updated button color */
+  color: #ffffff; /* Updated text inside button */
   border: none;
   padding: 8px 16px;
   border-radius: 4px;
@@ -96,19 +96,18 @@ const RetryButton = styled.button`
 const PopupContent: React.FC<PopupContentProps> = ({
   emails: initialEmails,
   loading,
-  error,
   coverLetter: initialCoverLetter,
   resumeUrl,
   onSubmit,
   onClose,
   companyName = 'Beem',
   companyLogo,
-  onRetry, // Add onRetry prop
+  onRetry,
+  errorResponse
 }) => {
   const [emails, setEmails] = useState<string[]>(initialEmails);
   const [coverLetter, setCoverLetter] = useState(initialCoverLetter);
 
-  // Load cover letter from Chrome storage on mount
   useEffect(() => {
     chrome.storage?.local.get(['coverLetter'], (result) => {
       if (result.coverLetter) {
@@ -117,14 +116,12 @@ const PopupContent: React.FC<PopupContentProps> = ({
     });
   }, []);
 
-  // Update Chrome storage whenever coverLetter changes
   useEffect(() => {
     chrome.storage?.local.set({ coverLetter }, () => {
       console.log('Cover letter saved to Chrome storage:', coverLetter);
     });
   }, [coverLetter]);
 
-  // Sync emails with initialEmails (e.g., when fetched from API or cache)
   useEffect(() => {
     setEmails(initialEmails);
   }, [initialEmails]);
@@ -149,12 +146,9 @@ const PopupContent: React.FC<PopupContentProps> = ({
       </Header>
       {loading ? (
         <EmailProgressBar />
-      ) : error ? (
-        <div>
-          <ErrorMessage>Error: {error}</ErrorMessage>
-          {onRetry && <RetryButton onClick={onRetry}>Retry</RetryButton>}
-        </div>
-      ) : (
+      ) : errorResponse ? (
+        <ErrorComponent response={errorResponse} onRetry={onRetry} />
+      ): (
         <>
           <TextUnderline>Emails</TextUnderline>
           <EmailList emails={emails} onRemove={handleRemoveEmail} />
@@ -172,7 +166,7 @@ const PopupContent: React.FC<PopupContentProps> = ({
               Cancel
             </Button>
             <Button
-              backgroundColor={'orange'}
+              backgroundColor={'#181818'} /* Updated button color */
               half={true}
               onClick={handleSubmit}
               disabled={emails.length === 0}

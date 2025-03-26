@@ -1,22 +1,27 @@
-// src/sidePanel/SidePanel.tsx
 import React, { useEffect, useState, useCallback } from 'react';
 import styled from 'styled-components';
 import PopupContent from '../popupContent/PopupContent';
 import { SidePanelProps, EmailResponse } from '../types';
 import { debounce, getComposeUrl } from '../utils/helpers';
+import { ErrorResponse } from '../components/ErrorComponent';
+import { FaEnvelope, FaCreditCard } from 'react-icons/fa';
+import SubscriptionContent from '../components/SubscriptionContent';
+import { useSubscription } from '../hooks/useSubscription';
 
+// SidePanel Styles
 const PanelWrapper = styled.div<{ isOpen: boolean }>`
   position: fixed;
   top: 0;
   right: 0;
-  width: ${({ isOpen }) => (isOpen ? '350px' : '0')};
+  width: 350px;
   height: 100%;
   background-color: #ffffff;
   box-shadow: -2px 0 10px rgba(0, 0, 0, 0.2);
-  z-index: 1000;
-  transition: width 0.3s ease-in-out;
+  z-index: 10000;
+  transform: ${({ isOpen }) => (isOpen ? 'translateX(0)' : 'translateX(100%)')};
+  transition: transform 0.3s ease-in-out;
+  display: ${({ isOpen }) => (isOpen ? 'block' : 'none')};
   overflow: hidden;
-  padding: ${({ isOpen }) => (isOpen ? '10px' : '0')};
 `;
 
 const CloseButton = styled.button`
@@ -27,67 +32,83 @@ const CloseButton = styled.button`
   border: none;
   font-size: 18px;
   cursor: pointer;
-  color: #ff6200;
+  color: #4d5969;
   display: flex;
   align-items: center;
   justify-content: center;
 `;
 
-const JOB_TITLE_SELECTOR = '.job-details-jobs-unified-top-card__job-title'; // Selector for job title
-const API_ENDPOINT = 'https://your-https-api-endpoint/process-application'; // Replace with your HTTPS API endpoint
+const TabContainer = styled.div`
+  display: flex;
+  border-bottom: 1px solid #e0e0e0;
+  // margin-bottom: 10px;
+`;
 
-const SidePanel: React.FC<SidePanelProps> = ({ isOpen, onClose }) => {
+const Tab = styled.button<{ active: boolean }>`
+  flex: 1;
+  padding: 10px;
+  background: ${({ active }) => (active ? '#181818' : '#f1f1f1')};
+  color: ${({ active }) => (active ? '#ffffff' : '#4d5969')};
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  transition: background 0.2s ease;
+
+  &:hover {
+    background: ${({ active }) => (active ? '#2a2a2a' : '#e0e0e0')};
+  }
+`;
+
+const ContentWrapper = styled.div`
+  height: calc(100% - 60px); /* Adjust for tab height and padding */
+  overflow-y: auto;
+  padding: 10px;
+`;
+
+const JOB_TITLE_SELECTOR = '.job-details-jobs-unified-top-card__job-title';
+const API_ENDPOINT = 'https://zonamap-report-server.onrender.com/process-application';
+
+const SidePanel = ({ isOpen = false, onClose }: SidePanelProps) => {
   const [emails, setEmails] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [coverLetter] = useState<string>(
-    ``
-  );
+  const [error, setError] = useState<ErrorResponse | null>(null); // Initialize as null
+  const [coverLetter] = useState<string>(``);
   const [userEmail] = useState<string>('agarwalnitesh42@gmail.com');
   const [resumeUrl] = useState<string>('bit.ly/resume123');
+  const [activeTab, setActiveTab] = useState<'emails' | 'subscription'>('emails');
 
-  // Function to fetch job title from DOM
-  const getJobTitle = (): string => {
-    const jobTitleElement = document.querySelector(JOB_TITLE_SELECTOR) as HTMLElement;
-    if (jobTitleElement) {
-      const jobTitle = jobTitleElement.innerText.trim();
-      console.log('Fetched job title:', jobTitle);
-      return jobTitle;
+  const { plan, error: subscriptionError, loading: subscriptionLoading, isTrialExpired, formatDate, handleSubscribe } = useSubscription({
+    freeTrialDays: 7,
+    onSuccessfulSubscription: () => setActiveTab('emails'), // Switch to emails tab after successful subscription
+  });
+
+  // Log when the side panel opens or closes
+  useEffect(() => {
+    console.log(`SidePanel isOpen: ${isOpen}`);
+  }, [isOpen]);
+
+  // Check if the free trial has expired and switch to subscription tab
+  useEffect(() => {
+    if (plan && isTrialExpired(plan)) {
+      console.log('Free trial expired, switching to subscription tab');
+      setActiveTab('subscription');
     }
-    console.warn('Job title not found in DOM, using fallback subject');
-    return 'Software Engineer'; // Fallback job title
-  };
+  }, [plan, isTrialExpired]);
 
-  // Function to extract company name from email domain
-  const getCompanyNameFromEmail = (email: string): string => {
-    try {
-      const domain = email.split('@')[1]; // Extract domain (e.g., "okta.com")
-      if (!domain) {
-        throw new Error('Invalid email format');
-      }
-      const companyName = domain.split('.')[0]; // Extract company name (e.g., "okta")
-      // Capitalize the first letter and return
-      return companyName.charAt(0).toUpperCase() + companyName.slice(1); // e.g., "Okta"
-    } catch (err) {
-      console.warn('Failed to extract company name from email:', err);
-      return 'Unknown Company'; // Fallback company name
-    }
-  };
-
-  // Get company name from the first email
-  const companyName = emails.length > 0 ? getCompanyNameFromEmail(emails[0]) : 'Unknown Company';
-
-  // Function to generate a unique storage key based on job URL
   const getStorageKey = (): string => {
     const jobUrl = window.location.href;
-    return `emails_${jobUrl}`; // e.g., "emails_https://www.linkedin.com/jobs/view/1234567890"
+    return `emails_${jobUrl}`;
   };
 
-  // Function to fetch emails from API
   const fetchEmailsFromAPI = useCallback(
     debounce(async () => {
       setLoading(true);
-      setError(null);
+      setError(null); // Reset error state
 
       try {
         const jobUrl = window.location.href;
@@ -110,17 +131,17 @@ const SidePanel: React.FC<SidePanelProps> = ({ isOpen, onClose }) => {
           throw new Error(`API request failed with status ${response.status}`);
         }
 
-        const data: EmailResponse = await response.json();
+        const data = await response.json();
         console.log('API response:', data);
 
-        if (data.error) {
-          setError(data.error);
+        if (!data.success) {
+          setError(data);
           setEmails([]);
         } else {
-          const fetchedEmails = data.emails || [];
+          const email = data.validEmails[0].email;
+          const fetchedEmails = [email];
           setEmails(fetchedEmails);
 
-          // Store emails in chrome.storage.local
           const storageKey = getStorageKey();
           chrome.storage.local.set({ [storageKey]: fetchedEmails }, () => {
             console.log('Emails stored in chrome.storage.local:', fetchedEmails);
@@ -128,7 +149,7 @@ const SidePanel: React.FC<SidePanelProps> = ({ isOpen, onClose }) => {
         }
       } catch (err) {
         console.error('Error fetching emails:', err);
-        setError('Failed to fetch emails. Please try again.');
+        setError({ message: (err as Error).message} as ErrorResponse);
         setEmails([]);
       } finally {
         setLoading(false);
@@ -137,7 +158,6 @@ const SidePanel: React.FC<SidePanelProps> = ({ isOpen, onClose }) => {
     [coverLetter, userEmail, resumeUrl]
   );
 
-  // Function to check cache and fetch emails if not cached
   const loadEmails = useCallback(() => {
     const storageKey = getStorageKey();
     chrome.storage.local.get([storageKey], (result) => {
@@ -154,9 +174,7 @@ const SidePanel: React.FC<SidePanelProps> = ({ isOpen, onClose }) => {
     });
   }, [fetchEmailsFromAPI]);
 
-  // Handle retry on error
   const handleRetry = () => {
-    // Clear cache for this job URL and fetch again
     const storageKey = getStorageKey();
     chrome.storage.local.remove([storageKey], () => {
       console.log('Cache cleared for job URL:', window.location.href);
@@ -168,11 +186,37 @@ const SidePanel: React.FC<SidePanelProps> = ({ isOpen, onClose }) => {
     if (isOpen) {
       loadEmails();
     } else {
-      // Reset state when side panel closes (optional, depending on your preference)
       setLoading(false);
       setError(null);
     }
   }, [isOpen, loadEmails]);
+
+  const getJobTitle = (): string => {
+    const jobTitleElement = document.querySelector(JOB_TITLE_SELECTOR) as HTMLElement;
+    if (jobTitleElement) {
+      const jobTitle = jobTitleElement.innerText.trim();
+      console.log('Fetched job title:', jobTitle);
+      return jobTitle;
+    }
+    console.warn('Job title not found in DOM, using fallback subject');
+    return 'Software Engineer';
+  };
+
+  const getCompanyNameFromEmail = (email: string): string => {
+    try {
+      const domain = email.split('@')[1];
+      if (!domain) {
+        throw new Error('Invalid email format');
+      }
+      const companyName = domain.split('.')[0];
+      return companyName.charAt(0).toUpperCase() + companyName.slice(1);
+    } catch (err) {
+      console.warn('Failed to extract company name from email:', err);
+      return 'Unknown Company';
+    }
+  };
+
+  const companyName = emails.length > 0 ? getCompanyNameFromEmail(emails[0]) : 'Unknown Company';
 
   const handleSubmit = (recipientEmails: string[], coverLetter: string, resumeUrl: string) => {
     const jobTitle = getJobTitle();
@@ -183,23 +227,47 @@ const SidePanel: React.FC<SidePanelProps> = ({ isOpen, onClose }) => {
     const composeUrl = getComposeUrl(userEmail, recipientEmails, subject, body);
 
     window.open(composeUrl, '_blank');
-    onClose();
+    onClose?.();
   };
 
   return (
     <PanelWrapper className="side-panel" isOpen={isOpen}>
       <CloseButton onClick={onClose}>✕</CloseButton>
-      <PopupContent
-        emails={emails}
-        loading={loading}
-        error={error}
-        coverLetter={coverLetter}
-        resumeUrl={resumeUrl}
-        onSubmit={handleSubmit}
-        onClose={onClose}
-        companyName={companyName}
-        onRetry={error ? handleRetry : undefined} // Pass retry handler only if there's an error
-      />
+      <TabContainer>
+        <Tab active={activeTab === 'emails'} onClick={() => setActiveTab('emails')}>
+          {/* <FaEnvelope size={14} /> */}
+          Emails
+        </Tab>
+        <Tab active={activeTab === 'subscription'} onClick={() => setActiveTab('subscription')}>
+          {/* <FaCreditCard size={14} /> */}
+          Subscription
+        </Tab>
+      </TabContainer>
+      <ContentWrapper>
+        {activeTab === 'emails' ? (
+          <PopupContent
+            emails={emails}
+            loading={loading}
+            coverLetter={coverLetter}
+            resumeUrl={resumeUrl}
+            onSubmit={handleSubmit}
+            onClose={onClose ? onClose : () => {}}
+            companyName={companyName}
+            onRetry={error ? handleRetry : undefined}
+            errorResponse={error}
+          />
+        ) : (
+          <SubscriptionContent
+            plan={plan}
+            error={subscriptionError}
+            loading={subscriptionLoading}
+            isTrialExpired={isTrialExpired}
+            formatDate={formatDate}
+            handleSubscribe={handleSubscribe}
+            isSidePanel={true}
+          />
+        )}
+      </ContentWrapper>
     </PanelWrapper>
   );
 };

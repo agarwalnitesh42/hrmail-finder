@@ -1,50 +1,52 @@
-// components/Button.tsx
 import React from 'react';
 import styled from 'styled-components';
 
 interface ButtonProps {
-  half?: boolean; // Prop to make button width 50%
   onClick: () => void;
-  disabled?: boolean;
   children: React.ReactNode;
+  disabled?: boolean;
+  half?: boolean;
   backgroundColor?: string;
 }
-// color:#333333 white; // White text
-const StyledButton = styled.button<{ disabled?: boolean; half?: boolean; backgroundColor?: string; }>`
-  background: ${(props) => (props.backgroundColor === 'white') ? 'white': '#ff6200'}; // Orange background as per screenshot
-  color: ${(props) => (props.backgroundColor === 'white') ? '#333333': '#ffffff'}; 
-  border: none; // No border
-  border-radius: 4px; // Rounded corners
-  padding: 10px 20px; // Increased padding for better look
-  font-family: Arial, sans-serif; // Clean font
-  font-size: 16px; // Slightly larger font size
-  font-weight: 600; // Bold text
-  cursor: ${(props) => (props.disabled ? 'not-allowed' : 'pointer')}; // Cursor style
-  opacity: ${(props) => (props.disabled ? 0.6 : 1)}; // Opacity for disabled state
-  transition: background 0.3s ease, opacity 0.2s ease; // Smooth transitions
-  width: ${(props) => (props.half ? '50%' : '100%')}; // Half width if half prop is true
-  display: inline-flex; // Ensure button content is centered
+
+const StyledButton = styled.button<{ half?: boolean; backgroundColor?: string }>`
+  background: ${({ backgroundColor }) => backgroundColor || '#181818'}; /* Updated default button color */
+  color: #ffffff; /* Updated text inside button */
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 600;
+  transition: background 0.2s ease, transform 0.1s ease;
+  width: ${({ half }) => (half ? '48%' : '100%')};
+  display: flex;
   align-items: center;
   justify-content: center;
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.1);
 
   &:hover {
-    background: ${({ backgroundColor }) => (backgroundColor ? darkenColor(backgroundColor, 10) : '#e55a00')};
-    opacity: ${(props) => (props.disabled ? 0.6 : 0.9)}; // Slight opacity change on hover
+    background: ${({ backgroundColor }) => (backgroundColor ? darkenColor(backgroundColor, -10) : '#2a2a2a')}; /* Slightly lighter shade for hover */
+    transform: translateY(-1px);
   }
 
-  &:focus {
-    outline: none; // Remove default focus outline
-    box-shadow: 0 0 0 2px rgba(255, 98, 0, 0.3); // Custom focus ring
+  &:active {
+    transform: translateY(0);
+  }
+
+  &:disabled {
+    background: #cccccc;
+    cursor: not-allowed;
+    box-shadow: none;
   }
 `;
 
-// Utility function to darken a color (for hover effect)
 const darkenColor = (color: string, percent: number): string => {
   const num = parseInt(color.replace('#', ''), 16);
-  const amt = Math.round(2.55 * percent);
-  const R = (num >> 16) - amt;
-  const G = ((num >> 8) & 0x00ff) - amt;
-  const B = (num & 0x0000ff) - amt;
+  const amt = Math.round(2.55 * Math.abs(percent));
+  const R = (num >> 16) + (percent < 0 ? -amt : amt);
+  const G = ((num >> 8) & 0x00ff) + (percent < 0 ? -amt : amt);
+  const B = (num & 0x0000ff) + (percent < 0 ? -amt : amt);
   return `#${(
     0x1000000 +
     (R < 255 ? (R < 1 ? 0 : R) : 255) * 0x10000 +
@@ -55,9 +57,9 @@ const darkenColor = (color: string, percent: number): string => {
     .slice(1)}`;
 };
 
-const Button: React.FC<ButtonProps> = ({ onClick, disabled = false, children, half, backgroundColor }) => {
+const Button: React.FC<ButtonProps> = ({ onClick, children, disabled, half, backgroundColor }) => {
   return (
-    <StyledButton half={half} onClick={onClick} disabled={disabled} backgroundColor={'white'}>
+    <StyledButton onClick={onClick} disabled={disabled} half={half} backgroundColor={backgroundColor}>
       {children}
     </StyledButton>
   );

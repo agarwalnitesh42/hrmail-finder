@@ -6,9 +6,9 @@
   "action": {
     "default_popup": "index.html",
     "default_icon": {
-      "16": "HrEmailFinderChromeExtensionIcon.png",
-      "48": "HrEmailFinderChromeExtensionIcon.png",
-      "128": "HrEmailFinderChromeExtensionIcon.png"
+      "16": "hrmail-logo.png",
+      "48": "hrmail-logo.png",
+      "128": "hrmail-logo.png"
     }
   },
   "permissions": ["activeTab", "storage", "scripting"],
@@ -29,8 +29,8 @@
     }
   ],
   "icons": {
-    "16": "HrEmailFinderChromeExtensionIcon.png",
-    "48": "HrEmailFinderChromeExtensionIcon.png",
-    "128": "HrEmailFinderChromeExtensionIcon.png"
+    "16": "hrmail-logo.png",
+    "48": "hrmail-logo.png",
+    "128": "hrmail-logo.png"
   }
 }

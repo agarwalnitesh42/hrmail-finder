@@ -1,15 +1,13 @@
-// src/styles/global.ts
 import { createGlobalStyle } from 'styled-components';
 
 export const GlobalStyles = createGlobalStyle`
   /* Only apply styles to extension-specific elements */
   #hrmail-root,
-  #hrmail-button-wrapper,
   .onboarding-overlay,
   .side-panel {
     font-family: 'Poppins', sans-serif !important;
-    color: #333 !important;
-    box-sizing: border-box; // Only for extension elements
+    color: #4d5969 !important; /* Updated text color */
+    box-sizing: border-box;
   }
 
   /* Ensure buttons and inputs within extension have consistent styles */
@@ -22,8 +20,8 @@ export const GlobalStyles = createGlobalStyle`
   .side-panel input,
   .side-panel select {
     font-family: 'Poppins', sans-serif !important;
-    color: #333 !important;
-    background-color: #fff !important;
+    color: #4d5969 !important; /* Updated text color */
+    background-color: #ffffff !important; /* Updated background color */
   }
 
   /* Ensure side panel overlay doesn't interfere with LinkedIn */

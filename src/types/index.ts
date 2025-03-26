@@ -1,6 +1,18 @@
 // types/index.ts
+
+import { ErrorResponse } from "../components/ErrorComponent";
+
+export interface Email {
+  email: string;
+  name: string;
+  title: string;
+  linkedinUrl: string;
+}
+
 export interface EmailResponse {
-  emails?: string[];
+  validEmails: Array<Email>
+  success: boolean;
+  message: string;
   error?: string;
   loading?: boolean;
 }
@@ -20,7 +32,6 @@ export interface EmailListProps {
 export interface PopupContentProps {
   emails: string[];
   loading: boolean;
-  error: string | null;
   coverLetter: string;
   resumeUrl: string;
   onSubmit: (emails: string[], coverLetter: string, resumeUrl: string) => void;
@@ -28,9 +39,10 @@ export interface PopupContentProps {
   companyName?: string; // Added
   companyLogo?: string; // Added
   onRetry?: () => void;
+  errorResponse?: ErrorResponse | null
 }
 
 export interface SidePanelProps {
-  isOpen: boolean;
-  onClose: () => void;
+  isOpen?: boolean;
+  onClose?: () => void;
 }

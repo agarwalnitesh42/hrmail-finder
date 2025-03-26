@@ -1,15 +1,12 @@
 // src/content/content.tsx
 import React, { useState, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom/client';
-import Button from '../components/Button';
 import SidePanel from '../sidePanel/SidePanel';
 import Onboarding from '../components/Onboarding';
-import { GlobalStyles } from '../styles/global';
-import { isLinkedInJobPage, getCompanyNameFromDOM, debounce } from '../utils/helpers';
-import Logo from '../components/Logo';
+import { isLinkedInJobPage, getCompanyNameFromDOM } from '../utils/helpers';
+import ButtonWrapper from '../components/ButtonWrapper';
 
 const JOB_CONTAINER_SELECTOR = 'div.jobs-details__main-content';
-const JOB_TITLE_SELECTOR = '.job-details-jobs-unified-top-card__job-title';
 const APPLY_BUTTON_SELECTOR = '.jobs-save-button';
 const FALLBACK_APPLY_BUTTON_SELECTOR = '[data-test="jobs-save-button"]';
 const ADDITIONAL_FALLBACK_SELECTOR = '.artdeco-button--secondary.artdeco-button--3';
@@ -62,38 +59,20 @@ const App: React.FC = () => {
 
   if (!onboardingCompleted) {
     return (
-      <>
-        <GlobalStyles />
-        <div className="onboarding-overlay">
-          <Onboarding onComplete={handleOnboardingComplete} />
-        </div>
-      </>
+      <div className="onboarding-overlay">
+        <Onboarding onComplete={handleOnboardingComplete} />
+      </div>
     );
   }
 
-  // Only render button if on a LinkedIn job page
   if (!isLinkedInJobPage()) {
     return null;
   }
 
   return (
-    <>
-      <GlobalStyles />
-      <div
-        id="hrmail-button-wrapper"
-        ref={buttonRef}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '10px',
-        }}
-      >
-        <Button onClick={handleButtonClick} disabled={isPanelOpen}>
-          Reveal Email & Apply
-        </Button>
-        <Logo />
-      </div>
-    </>
+    <div id="hrmail-button-wrapper" ref={buttonRef}>
+      <ButtonWrapper onClick={handleButtonClick} disabled={isPanelOpen} />
+    </div>
   );
 };
 
@@ -117,111 +96,96 @@ const SidePanelWrapper: React.FC = () => {
     window.dispatchEvent(closeEvent);
   };
 
-  return <SidePanel isOpen={isOpen} onClose={handleClose} />;
+  return isOpen ? <SidePanel isOpen={isOpen} onClose={handleClose} /> : null;
 };
 
 // Global variables to manage state
 let isInjected = false;
-let buttonRoot: ReactDOM.Root | null = null;
+let appRoot: ReactDOM.Root | null = null;
 let sidePanelRoot: ReactDOM.Root | null = null;
-let shadowHost: HTMLElement | null = null;
-let shadowRoot: ShadowRoot | null = null;
-let buttonContainer: HTMLDivElement | null = null;
 let sidePanelContainer: HTMLDivElement | null = null;
-let observer: MutationObserver | null = null;
-let jobLoadObserver: MutationObserver | null = null;
-let saveButtonObserver: MutationObserver | null = null;
-let resizeObserver: ResizeObserver | null = null;
+let buttonContainer: HTMLDivElement | null = null;
 let lastJobUrl = window.location.href;
+let monitorInterval: NodeJS.Timeout | null = null;
 
-const waitForJobPostLoad = (callback: () => void, retryCount = 0, maxRetries = 20) => {
-  const jobTitle = document.querySelector(JOB_TITLE_SELECTOR);
-  if (jobTitle) {
-    console.log('Job post fully loaded (job title found), proceeding with injection');
-    callback();
+// Wait for the target element (Save/Apply button) to be visible
+const waitForTargetElement = (
+  callback: (targetElement: HTMLElement) => void,
+  retryCount = 0,
+  maxRetries = 20
+) => {
+  let targetElement: HTMLElement | null = document.querySelector(APPLY_BUTTON_SELECTOR);
+  if (!targetElement) {
+    targetElement = document.querySelector(FALLBACK_APPLY_BUTTON_SELECTOR);
+  }
+  if (!targetElement) {
+    targetElement = document.querySelector(ADDITIONAL_FALLBACK_SELECTOR);
+  }
+
+  if (targetElement) {
+    callback(targetElement);
     return;
   }
 
   if (retryCount < maxRetries) {
-    console.log(`Job post not fully loaded, retrying (${retryCount + 1}/${maxRetries}) in 500ms`);
-    setTimeout(() => waitForJobPostLoad(callback, retryCount + 1, maxRetries), 500);
-  } else {
-    console.error('Job post not loaded after maximum retries, proceeding with default injection');
-    callback();
+    setTimeout(() => waitForTargetElement(callback, retryCount + 1, maxRetries), 500);
   }
-
-  const jobContainer = document.querySelector(JOB_CONTAINER_SELECTOR) || document.body;
-  jobLoadObserver = new MutationObserver((mutations) => {
-    mutations.forEach(() => {
-      const jobTitle = document.querySelector(JOB_TITLE_SELECTOR);
-      if (jobTitle) {
-        console.log('Job post loaded via observer (job title found), proceeding with injection');
-        jobLoadObserver?.disconnect();
-        callback();
-      }
-    });
-  });
-  jobLoadObserver.observe(jobContainer, { childList: true, subtree: true });
-  console.log('Job load observer set up');
 };
 
-const injectButtonAndPanel = () => {
-  // Only inject if on a LinkedIn job page
+// Clean up existing button and side panel
+const cleanupInjection = () => {
+  if (buttonContainer && document.body.contains(buttonContainer)) {
+    buttonContainer.remove();
+    buttonContainer = null;
+  }
+  if (appRoot) {
+    appRoot.unmount();
+    appRoot = null;
+  }
+  if (sidePanelContainer) {
+    sidePanelContainer.remove();
+    sidePanelContainer = null;
+  }
+  if (sidePanelRoot) {
+    sidePanelRoot.unmount();
+    sidePanelRoot = null;
+  }
+  isInjected = false;
+};
+
+// Inject the button and side panel container
+const injectButtonAndPanel = (targetElement: HTMLElement) => {
   if (!isLinkedInJobPage()) {
-    console.log('Not a LinkedIn job page, exiting');
-    if (buttonContainer) {
-      buttonContainer.style.display = 'none'; // Hide button if already injected
+    if (buttonContainer && document.body.contains(buttonContainer)) {
+      cleanupInjection();
     }
     return;
   }
 
-  if (isInjected && shadowHost && document.body.contains(shadowHost)) {
-    console.log('Injection already performed and shadow host exists, repositioning button');
-    buttonContainer!.style.display = 'inline-flex'; // Show button on job page
-    positionButtonWithRetry();
+  // If the button is already injected and still in the DOM, do nothing
+  if (isInjected && buttonContainer && document.body.contains(buttonContainer)) {
     return;
   }
 
-  console.log('=== Starting injectButtonAndPanel ===');
-
-  shadowHost = document.createElement('div');
-  shadowHost.id = 'hrmail-shadow-host';
-  shadowRoot = shadowHost.attachShadow({ mode: 'open' });
-
-  try {
-    document.body.appendChild(shadowHost);
-    console.log('Shadow host appended to body');
-  } catch (error) {
-    console.error('Failed to append shadow host to body:', error);
-    return;
+  // Clean up only if necessary
+  if (buttonContainer || appRoot || sidePanelContainer || sidePanelRoot) {
+    cleanupInjection();
   }
 
   buttonContainer = document.createElement('div');
   buttonContainer.id = 'hrmail-button';
-  buttonContainer.style.position = 'absolute';
-  buttonContainer.style.zIndex = '1000';
-  buttonContainer.style.display = 'inline-flex';
-
-  shadowRoot.appendChild(buttonContainer);
-
-  if (!shadowRoot.contains(buttonContainer)) {
-    console.error('buttonContainer not in shadow DOM after append');
-    return;
-  }
-  console.log('buttonContainer verified in shadow DOM');
-
-  const companyName = getCompanyNameFromDOM();
-  console.log('Company Name:', companyName);
 
   try {
-    if (!buttonRoot) {
-      buttonRoot = ReactDOM.createRoot(buttonContainer);
-      buttonRoot.render(<App />);
-      console.log('App component rendered successfully into buttonContainer');
-      isInjected = true;
-    }
+    targetElement.insertAdjacentElement('afterend', buttonContainer);
   } catch (error) {
-    console.error('Failed to render App component into buttonContainer:', error);
+    const jobContainer = document.querySelector(JOB_CONTAINER_SELECTOR) || document.body;
+    jobContainer.appendChild(buttonContainer);
+  }
+
+  try {
+    appRoot = ReactDOM.createRoot(buttonContainer);
+    appRoot.render(<App />);
+  } catch (error) {
     return;
   }
 
@@ -231,203 +195,81 @@ const injectButtonAndPanel = () => {
     sidePanelContainer.id = 'hrmail-sidepanel-root';
     try {
       document.body.appendChild(sidePanelContainer);
-      console.log('Side panel container appended to body');
     } catch (error) {
-      console.error('Failed to append side panel container:', error);
       return;
     }
   }
 
   if (!document.body.contains(sidePanelContainer)) {
-    console.error('sidePanelContainer not in DOM after append');
     return;
   }
-  console.log('sidePanelContainer verified in DOM');
 
   try {
     if (!sidePanelRoot) {
       sidePanelRoot = ReactDOM.createRoot(sidePanelContainer);
       sidePanelRoot.render(<SidePanelWrapper />);
-      console.log('SidePanelWrapper component rendered successfully into sidePanelContainer');
     }
   } catch (error) {
-    console.error('Failed to render SidePanelWrapper component:', error);
-  }
-
-  positionButtonWithRetry();
-};
-
-const positionButtonWithRetry = (retryCount = 0, maxRetries = 10) => {
-  if (!buttonContainer) {
-    console.log('Button container not found, skipping positioning');
     return;
   }
 
-  let saveButton = document.querySelector(APPLY_BUTTON_SELECTOR) as HTMLElement | null;
-  if (!saveButton) {
-    saveButton = document.querySelector(FALLBACK_APPLY_BUTTON_SELECTOR) as HTMLElement | null;
-  }
-  if (!saveButton) {
-    saveButton = document.querySelector(ADDITIONAL_FALLBACK_SELECTOR) as HTMLElement | null;
-  }
+  isInjected = true;
 
-  if (!saveButton) {
-    if (retryCount < maxRetries) {
-      console.log(`Save button not found, retrying (${retryCount + 1}/${maxRetries}) in 500ms`);
-      setTimeout(() => positionButtonWithRetry(retryCount + 1, maxRetries), 500);
-      return;
-    } else {
-      console.error('Save button not found after maximum retries, positioning button at default location');
-      buttonContainer.style.display = 'inline-flex';
-      buttonContainer.style.top = '10px';
-      buttonContainer.style.right = '10px';
-      buttonContainer.style.left = 'auto';
-      console.log('Button positioned at default location (top-right)');
-      setupSaveButtonObserver();
-      return;
-    }
-  }
-
-  const rect = saveButton.getBoundingClientRect();
-  const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-  const scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
-
-  buttonContainer.style.display = 'inline-flex';
-  buttonContainer.style.top = `${rect.top + scrollTop}px`;
-  buttonContainer.style.left = `${rect.right + scrollLeft + 10}px`;
-  buttonContainer.style.right = 'auto';
-  console.log('Button positioned at:', {
-    top: buttonContainer.style.top,
-    left: buttonContainer.style.left,
-  });
+  getCompanyNameFromDOM();
 };
 
-const setupSaveButtonObserver = () => {
-  if (saveButtonObserver) {
-    saveButtonObserver.disconnect();
-  }
-
-  const jobContainer = document.querySelector(JOB_CONTAINER_SELECTOR) || document.body;
-  saveButtonObserver = new MutationObserver((mutations) => {
-    let shouldReposition = false;
-    mutations.forEach((mutation) => {
-      if (mutation.addedNodes.length || mutation.removedNodes.length) {
-        const saveButton = document.querySelector(APPLY_BUTTON_SELECTOR) ||
-                          document.querySelector(FALLBACK_APPLY_BUTTON_SELECTOR) ||
-                          document.querySelector(ADDITIONAL_FALLBACK_SELECTOR);
-        if (saveButton) {
-          shouldReposition = true;
-        }
-      }
-    });
-
-    if (shouldReposition) {
-      console.log('Save button detected via observer, repositioning button');
-      positionButtonWithRetry();
-    }
-  });
-  saveButtonObserver.observe(jobContainer, { childList: true, subtree: true });
-  console.log('Save button observer set up');
-};
-
-const setupPositionListeners = () => {
-  const handleScroll = debounce(() => {
-    positionButtonWithRetry();
-  }, 100);
-
-  const handleResize = debounce(() => {
-    positionButtonWithRetry();
-  }, 100);
-
-  window.addEventListener('scroll', handleScroll);
-  resizeObserver = new ResizeObserver(handleResize);
-  resizeObserver.observe(document.body);
-
-  return () => {
-    window.removeEventListener('scroll', handleScroll);
-    if (resizeObserver) {
-      resizeObserver.disconnect();
-    }
-  };
-};
-
+// Setup navigation listeners with monitoring
 const setupNavigationListeners = () => {
   const handlePopstate = () => {
     const currentJobUrl = window.location.href;
     if (currentJobUrl !== lastJobUrl) {
-      console.log('SPA navigation detected, waiting for job post to load');
       lastJobUrl = currentJobUrl;
       isInjected = false;
-      waitForJobPostLoad(injectButtonAndPanel);
+      waitForTargetElement(injectButtonAndPanel);
     }
   };
   window.addEventListener('popstate', handlePopstate);
 
-  const jobContainer = document.querySelector(JOB_CONTAINER_SELECTOR) || document.body;
-  observer = new MutationObserver(() => {
+  // Monitor the button's presence and URL changes
+  monitorInterval = setInterval(() => {
     const currentJobUrl = window.location.href;
     if (currentJobUrl !== lastJobUrl) {
-      console.log('Job page changed, waiting for job post to load');
       lastJobUrl = currentJobUrl;
       isInjected = false;
-      waitForJobPostLoad(injectButtonAndPanel);
+      waitForTargetElement(injectButtonAndPanel);
+    } else if (isInjected && (!buttonContainer || !document.body.contains(buttonContainer))) {
+      // Button was removed by LinkedIn's DOM updates, re-inject it
+      waitForTargetElement(injectButtonAndPanel);
     }
-  });
-  observer.observe(jobContainer, { childList: true, subtree: true });
-  console.log('MutationObserver set up on job container');
+  }, 1000);
 
   return () => {
     window.removeEventListener('popstate', handlePopstate);
-    if (observer) {
-      observer.disconnect();
-    }
-    if (jobLoadObserver) {
-      jobLoadObserver.disconnect();
-    }
-    if (saveButtonObserver) {
-      saveButtonObserver.disconnect();
+    if (monitorInterval) {
+      clearInterval(monitorInterval);
+      monitorInterval = null;
     }
   };
 };
 
+// Run injection
 const runInjection = () => {
   if (document.readyState === 'complete' || document.readyState === 'interactive') {
-    console.log('DOM loaded, waiting for job post to fully load');
-    waitForJobPostLoad(() => {
-      injectButtonAndPanel();
-      const cleanupPosition = setupPositionListeners();
+    waitForTargetElement(injectButtonAndPanel);
+    const cleanupNavigation = setupNavigationListeners();
+
+    window.addEventListener('unload', () => {
+      cleanupNavigation();
+      cleanupInjection();
+    });
+  } else {
+    document.addEventListener('DOMContentLoaded', () => {
+      waitForTargetElement(injectButtonAndPanel);
       const cleanupNavigation = setupNavigationListeners();
 
       window.addEventListener('unload', () => {
-        cleanupPosition();
         cleanupNavigation();
-        if (buttonRoot) {
-          buttonRoot.unmount();
-        }
-        if (sidePanelRoot) {
-          sidePanelRoot.unmount();
-        }
-      });
-    });
-  } else {
-    console.log('DOM not ready, waiting for DOMContentLoaded');
-    document.addEventListener('DOMContentLoaded', () => {
-      console.log('DOM loaded, waiting for job post to fully load');
-      waitForJobPostLoad(() => {
-        injectButtonAndPanel();
-        const cleanupPosition = setupPositionListeners();
-        const cleanupNavigation = setupNavigationListeners();
-
-        window.addEventListener('unload', () => {
-          cleanupPosition();
-          cleanupNavigation();
-          if (buttonRoot) {
-            buttonRoot.unmount();
-          }
-          if (sidePanelRoot) {
-            sidePanelRoot.unmount();
-          }
-        });
+        cleanupInjection();
       });
     });
   }
