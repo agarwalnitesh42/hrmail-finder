@@ -26,11 +26,11 @@ const PanelWrapper = styled.div<{ isOpen: boolean }>`
 
 const CloseButton = styled.button`
   position: absolute;
-  top: 10px;
+  top: 6px;
   right: 10px;
   background: none;
   border: none;
-  font-size: 18px;
+  font-size: 20px;
   cursor: pointer;
   color: #4d5969;
   display: flex;
@@ -41,7 +41,6 @@ const CloseButton = styled.button`
 const TabContainer = styled.div`
   display: flex;
   border-bottom: 1px solid #e0e0e0;
-  // margin-bottom: 10px;
 `;
 
 const Tab = styled.button<{ active: boolean }>`
