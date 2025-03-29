@@ -55,6 +55,7 @@ const Status = styled.span`
   background: #7ef17e;
   font-size: 10px;
   border-radius: 6px;
+  color: #393939;
 `;
 
 
@@ -70,7 +71,7 @@ const EmailList: React.FC<EmailListProps> = ({ emails, onRemove }) => {
           <EmailItemContainer>
             <Status> verified </Status>
             <EmailItem key={email}>
-              <span>{email}</span>
+              <span style={{color: 'black'}}>{email}</span>
               <RemoveButton onClick={() => onRemove(email)}>X</RemoveButton>
             </EmailItem>
           </EmailItemContainer>

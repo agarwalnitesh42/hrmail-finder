@@ -53,9 +53,8 @@ const ProgressText = styled.p`
 // Random progress messages
 const messages = [
   'Scanning LinkedIn for HR contacts…',
-  'Finding emails at Okta…',
+  'Finding emails',
   'Almost there, hang tight…',
-  'Generating email patterns…',
   'Checking for HR leads…',
 ];
 

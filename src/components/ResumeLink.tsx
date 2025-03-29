@@ -18,6 +18,7 @@ const StyledResume = styled.div<{ disabled?: boolean }>`
   font-weight: 500;
   transition: opacity 0.2s ease;
   width: 100%;
+  margin-bottom: 3%;
   &:hover {
     opacity: ${props => (props.disabled ? 0.6 : 0.9)};
   }

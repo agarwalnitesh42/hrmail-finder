@@ -15,7 +15,7 @@ const ButtonContainer = styled.div`
 
 const StyledButton = styled.button<{ disabled?: boolean }>`
   margin-left: 10px;
-  background: #F44336 !important; /* Updated button color */
+  background: #F57451 !important; /* Updated button color */
   color: #ffffff !important; /* Updated text inside button */
   border: none !important;
   padding: 10px 10px !important;

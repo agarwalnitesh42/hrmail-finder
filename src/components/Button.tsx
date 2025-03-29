@@ -10,7 +10,7 @@ interface ButtonProps {
 }
 
 const StyledButton = styled.button<{ half?: boolean; backgroundColor?: string }>`
-  background: ${({ backgroundColor }) => backgroundColor || '#181818'}; /* Updated default button color */
+  background: ${({ backgroundColor }) => backgroundColor || '#F57451'}; /* Updated default button color */
   color: #ffffff; /* Updated text inside button */
   border: none;
   padding: 10px 20px;

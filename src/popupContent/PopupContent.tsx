@@ -15,7 +15,7 @@ const PopupWrapper = styled.div`
   background: #ffffff; /* Updated background color */
   border-radius: 8px;
   font-family: Arial, sans-serif;
-  height: 63%;
+  height: 58%;
 `;
 
 const CoverLetterInput = styled.textarea`
@@ -36,34 +36,9 @@ const CoverLetterInput = styled.textarea`
   color: #4d5969; /* Updated text color */
 `;
 
-const Link = styled.a`
-  display: block;
-  margin: 10px 0;
-  color: #0073b1;
-  text-decoration: none;
-  font-size: 14px;
-
-  &:hover {
-    text-decoration: underline;
-  }
-`;
-
 const ButtonContainer = styled.div`
   display: flex;
   justify-content: space-between;
-`;
-
-const LoadingSpinner = styled.div`
-  text-align: center;
-  padding: 20px;
-  color: #4d5969; /* Updated text color */
-`;
-
-const ErrorMessage = styled.div`
-  color: red;
-  text-align: center;
-  padding: 10px;
-  font-size: 14px;
 `;
 
 const Header = styled.div`
@@ -80,18 +55,6 @@ const TextUnderline = styled.text`
   font-weight: 600;
 `;
 
-const RetryButton = styled.button`
-  background: #181818; /* Updated button color */
-  color: #ffffff; /* Updated text inside button */
-  border: none;
-  padding: 8px 16px;
-  border-radius: 4px;
-  cursor: pointer;
-  margin-top: 10px;
-  &:hover {
-    opacity: 0.9;
-  }
-`;
 
 const PopupContent: React.FC<PopupContentProps> = ({
   emails: initialEmails,
@@ -162,11 +125,11 @@ const PopupContent: React.FC<PopupContentProps> = ({
             <text>Please Add Resume in the next step while sending email</text>
           </ResumeLink>
           <ButtonContainer>
-            <Button half={true} onClick={onClose}>
+            <Button backgroundColor={'#181818'}  half={true} onClick={onClose}>
               Cancel
             </Button>
             <Button
-              backgroundColor={'#181818'} /* Updated button color */
+              /* Updated button color */
               half={true}
               onClick={handleSubmit}
               disabled={emails.length === 0}

@@ -13,7 +13,8 @@ const PanelWrapper = styled.div<{ isOpen: boolean }>`
   position: fixed;
   top: 0;
   right: 0;
-  width: 350px;
+  width: 400px;
+  border: 0.4px solid white;
   height: 100%;
   background-color: #ffffff;
   box-shadow: -2px 0 10px rgba(0, 0, 0, 0.2);
@@ -64,7 +65,7 @@ const Tab = styled.button<{ active: boolean }>`
 `;
 
 const ContentWrapper = styled.div`
-  height: calc(100% - 60px); /* Adjust for tab height and padding */
+  height: calc(100% - 28px); /* Adjust for tab height and padding */
   overflow-y: auto;
   padding: 10px;
 `;
@@ -235,7 +236,7 @@ const SidePanel = ({ isOpen = false, onClose }: SidePanelProps) => {
       <TabContainer>
         <Tab active={activeTab === 'emails'} onClick={() => setActiveTab('emails')}>
           {/* <FaEnvelope size={14} /> */}
-          Emails
+          Email Apply
         </Tab>
         <Tab active={activeTab === 'subscription'} onClick={() => setActiveTab('subscription')}>
           {/* <FaCreditCard size={14} /> */}
